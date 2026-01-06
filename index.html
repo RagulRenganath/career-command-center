@@ -5,25 +5,18 @@
   <title>Career Command Center</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            bg: "#0b1220",
-            panel: "#020617",
-            card: "#020617",
-            accent: "#6366f1",
-            muted: "#94a3b8"
+            bg:"#0b1220",
+            panel:"#020617",
+            accent:"#6366f1",
+            muted:"#94a3b8",
+            success:"#22c55e"
           }
         }
       }
@@ -31,157 +24,206 @@
   </script>
 
   <style>
-    .card-hover {
-      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    .toast {
+      animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.4s forwards;
     }
-    .card-hover:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+    @keyframes slideIn {
+      from { opacity:0; transform:translateY(10px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+    @keyframes fadeOut {
+      to { opacity:0; }
     }
   </style>
 </head>
 
-<body class="bg-bg text-slate-200 min-h-screen flex">
+<body class="bg-bg text-slate-200 min-h-screen flex justify-center">
 
-<!-- SIDEBAR -->
-<aside class="w-64 bg-panel border-r border-slate-800 p-6 hidden md:flex flex-col">
-  <h1 class="text-xl font-semibold mb-10">🎯 Career Tracker</h1>
-
-  <nav class="space-y-2 text-sm">
-    <button onclick="navigate('apps')" class="flex gap-3 px-3 py-2 rounded bg-slate-800/40 text-accent">
-      <i data-lucide="briefcase"></i> Applications
-    </button>
-    <button onclick="navigate('follow')" class="flex gap-3 px-3 py-2 rounded text-muted hover:bg-slate-800/30">
-      <i data-lucide="bell"></i> Follow-ups
-    </button>
-    <button onclick="navigate('analytics')" class="flex gap-3 px-3 py-2 rounded text-muted hover:bg-slate-800/30">
-      <i data-lucide="bar-chart-3"></i> Analytics
-    </button>
-  </nav>
-
-  <div class="mt-auto text-xs text-muted pt-6 border-t border-slate-800">
-    Personal system • Supabase powered
-  </div>
-</aside>
-
-<!-- MAIN -->
-<main class="flex-1 p-6 md:p-10 space-y-10">
+<main class="w-full max-w-4xl p-6 space-y-10">
 
 <header>
-  <h2 class="text-3xl font-semibold">Career Command Center</h2>
-  <p class="text-muted mt-1">
-    Track applications, follow-ups, and outcomes intelligently.
-  </p>
+  <h1 class="text-3xl font-semibold">Career Command Center</h1>
+  <p class="text-muted mt-1">Simple • Stable • Free placement tracking</p>
 </header>
 
-<!-- APPLICATIONS -->
-<section id="apps">
-  <h3 class="text-xl font-semibold mb-4">Applications</h3>
+<!-- TOAST -->
+<div id="toast"
+  class="fixed bottom-6 right-6 bg-success text-white px-5 py-3 rounded-lg hidden toast">
+  ✔ Saved successfully
+</div>
 
-  <div class="bg-card rounded-xl border border-slate-800 overflow-hidden card-hover">
-    <table class="w-full text-sm">
-      <thead class="bg-slate-900 text-muted">
-        <tr>
-          <th class="px-6 py-4 text-left">Company</th>
-          <th class="px-6 py-4 text-left">Role</th>
-          <th class="px-6 py-4 text-left">Status</th>
-          <th class="px-6 py-4 text-left">Follow-up</th>
-        </tr>
-      </thead>
-      <tbody id="appTable"></tbody>
-    </table>
-  </div>
+<!-- APPLICATION FORM -->
+<section class="bg-panel p-6 rounded-xl border border-slate-800">
+  <h2 class="text-xl font-semibold mb-4">Add Application</h2>
+
+  <form name="applications" method="POST" netlify
+        onsubmit="handleAppSubmit(event)"
+        class="space-y-4">
+
+    <input type="hidden" name="form-name" value="applications">
+
+    <input name="company" required placeholder="Company"
+      class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+
+    <input name="role" required placeholder="Role"
+      class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+
+    <select name="status"
+      class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+      <option>Applied</option>
+      <option>Interview</option>
+      <option>Offer</option>
+      <option>Rejected</option>
+    </select>
+
+    <input type="date" name="follow_up"
+      class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+
+    <button id="appBtn"
+      class="bg-accent px-5 py-2 rounded text-white flex items-center gap-2">
+      <span id="appBtnText">Save</span>
+      <span id="appLoader" class="hidden animate-spin">⏳</span>
+    </button>
+  </form>
 </section>
 
-<!-- FOLLOW UPS -->
-<section id="follow" class="hidden">
-  <h3 class="text-xl font-semibold mb-4">Follow-ups Requiring Action</h3>
-  <div id="followList" class="space-y-3"></div>
+<!-- APPLICATION LIST -->
+<section class="bg-panel p-6 rounded-xl border border-slate-800">
+  <h3 class="text-lg font-semibold mb-3">Applications</h3>
+  <table class="w-full text-sm">
+    <thead class="text-muted border-b border-slate-700">
+      <tr>
+        <th class="text-left py-2">Company</th>
+        <th class="text-left py-2">Role</th>
+        <th class="text-left py-2">Status</th>
+      </tr>
+    </thead>
+    <tbody id="appList"></tbody>
+  </table>
+  <p id="appEmpty" class="text-muted text-sm mt-3">No applications added yet.</p>
 </section>
 
-<!-- ANALYTICS -->
-<section id="analytics" class="hidden">
-  <h3 class="text-xl font-semibold mb-6">Conversion Funnel</h3>
+<!-- NETWORK FORM -->
+<section class="bg-panel p-6 rounded-xl border border-slate-800">
+  <h2 class="text-xl font-semibold mb-4">Networking Tracker</h2>
 
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-    <div class="bg-card p-4 rounded-xl border border-slate-800">Applied<br><b id="aTotal">0</b></div>
-    <div class="bg-card p-4 rounded-xl border border-slate-800">Interviews<br><b id="aInterview">0</b></div>
-    <div class="bg-card p-4 rounded-xl border border-slate-800">Offers<br><b id="aOffer">0</b></div>
-    <div class="bg-card p-4 rounded-xl border border-slate-800">Rejected<br><b id="aReject">0</b></div>
-  </div>
+  <form name="networking" method="POST" netlify
+        onsubmit="handleNetSubmit(event)"
+        class="space-y-4">
 
-  <p class="text-muted text-sm">
-    Interview Conversion Rate:
-    <span class="text-white font-medium" id="convRate">0</span>%
-  </p>
+    <input type="hidden" name="form-name" value="networking">
+
+    <input name="name" required placeholder="Name"
+      class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+
+    <input name="company" placeholder="Company"
+      class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+
+    <input name="role" placeholder="Role"
+      class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+
+    <button id="netBtn"
+      class="bg-accent px-5 py-2 rounded text-white flex items-center gap-2">
+      <span id="netBtnText">Save</span>
+      <span id="netLoader" class="hidden animate-spin">⏳</span>
+    </button>
+  </form>
 </section>
+
+<!-- NETWORK LIST -->
+<section class="bg-panel p-6 rounded-xl border border-slate-800">
+  <h3 class="text-lg font-semibold mb-3">Contacts</h3>
+  <ul id="netList" class="space-y-2"></ul>
+  <p id="netEmpty" class="text-muted text-sm mt-3">No contacts added yet.</p>
+</section>
+
+<footer class="text-center text-muted text-sm">
+  Cloud storage: Netlify Forms • UI storage: Browser
+</footer>
 
 </main>
 
-<!-- SCRIPT -->
 <script>
-  lucide.createIcons();
+  const apps = JSON.parse(localStorage.getItem("apps") || "[]");
+  const nets = JSON.parse(localStorage.getItem("nets") || "[]");
 
-  /* 🔐 Supabase client (SAFE, declared once) */
-  const db = supabase.createClient(
-    "https://aeddptixtvbjoiljhzrr.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlZGRwdGl4dHZiam9pbGpoenJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDgwNjIsImV4cCI6MjA4MzI4NDA2Mn0.53xYiJ-cRhUfVjsLsl0bQOphiT56ikpmXsM9Q4HwFw0"
-  );
+  function render() {
+    appList.innerHTML = "";
+    netList.innerHTML = "";
 
-  function navigate(id) {
-    ["apps","follow","analytics"].forEach(sec =>
-      document.getElementById(sec).classList.add("hidden")
-    );
-    document.getElementById(id).classList.remove("hidden");
-  }
+    appEmpty.style.display = apps.length ? "none" : "block";
+    netEmpty.style.display = nets.length ? "none" : "block";
 
-  async function loadData() {
-    const { data, error } = await db.from("applications").select("*");
-    if (error) {
-      console.error("Supabase error:", error);
-      return;
-    }
-
-    const today = new Date().toISOString().split("T")[0];
-    appTable.innerHTML = "";
-    followList.innerHTML = "";
-
-    data.forEach(a => {
-      let flag = "";
-      if (a.follow_up && a.follow_up <= today) flag = "⚠️";
-
-      appTable.innerHTML += `
-        <tr class="border-t border-slate-800">
-          <td class="px-6 py-4">${a.company}</td>
-          <td class="px-6 py-4">${a.role}</td>
-          <td class="px-6 py-4">${a.status}</td>
-          <td class="px-6 py-4">${a.follow_up || "-"} ${flag}</td>
+    apps.forEach(a => {
+      appList.innerHTML += `
+        <tr class="border-b border-slate-800">
+          <td class="py-2">${a.company}</td>
+          <td>${a.role}</td>
+          <td>${a.status}</td>
         </tr>`;
     });
 
-    data.filter(a => a.follow_up && a.follow_up <= today)
-      .forEach(a => {
-        followList.innerHTML += `
-          <div class="bg-card p-4 rounded-xl border border-red-500/40">
-            <b>${a.company}</b><br>
-            <span class="text-muted">${a.role}</span><br>
-            Follow-up: ${a.follow_up}
-          </div>`;
-      });
-
-    const total = data.length;
-    const interview = data.filter(a => a.status === "Interview").length;
-    const offer = data.filter(a => a.status === "Offer").length;
-    const reject = data.filter(a => a.status === "Rejected").length;
-
-    aTotal.textContent = total;
-    aInterview.textContent = interview;
-    aOffer.textContent = offer;
-    aReject.textContent = reject;
-    convRate.textContent = total ? ((interview / total) * 100).toFixed(1) : 0;
+    nets.forEach(n => {
+      netList.innerHTML += `
+        <li class="bg-slate-900 px-4 py-2 rounded">
+          <b>${n.name}</b> — ${n.company || "-"}
+        </li>`;
+    });
   }
 
-  loadData();
+  function toast() {
+    toastEl = document.getElementById("toast");
+    toastEl.classList.remove("hidden");
+    setTimeout(() => toastEl.classList.add("hidden"), 3000);
+  }
+
+  function handleAppSubmit(e) {
+    e.preventDefault();
+    appBtn.disabled = true;
+    appBtnText.textContent = "Saving...";
+    appLoader.classList.remove("hidden");
+
+    const data = Object.fromEntries(new FormData(e.target));
+    apps.push(data);
+    localStorage.setItem("apps", JSON.stringify(apps));
+
+    fetch("/", { method:"POST", body:new FormData(e.target) })
+      .then(() => {
+        e.target.reset();
+        render();
+        toast();
+      })
+      .finally(() => {
+        appBtn.disabled = false;
+        appBtnText.textContent = "Save";
+        appLoader.classList.add("hidden");
+      });
+  }
+
+  function handleNetSubmit(e) {
+    e.preventDefault();
+    netBtn.disabled = true;
+    netBtnText.textContent = "Saving...";
+    netLoader.classList.remove("hidden");
+
+    const data = Object.fromEntries(new FormData(e.target));
+    nets.push(data);
+    localStorage.setItem("nets", JSON.stringify(nets));
+
+    fetch("/", { method:"POST", body:new FormData(e.target) })
+      .then(() => {
+        e.target.reset();
+        render();
+        toast();
+      })
+      .finally(() => {
+        netBtn.disabled = false;
+        netBtnText.textContent = "Save";
+        netLoader.classList.add("hidden");
+      });
+  }
+
+  render();
 </script>
 
 </body>
