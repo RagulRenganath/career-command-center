@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Career Command Center</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        bg:"#0b1220",
+        panel:"#020617",
+        card:"#020617",
+        accent:"#6366f1",
+        muted:"#94a3b8"
+      },
+      boxShadow:{
+        soft:"0 10px 30px rgba(0,0,0,.25)"
+      }
+    }
+  }
+}
+</script>
+
+<style>
+  .card-hover {
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(0,0,0,.35);
+  }
+</style>
+</head>
+
+<body class="bg-bg text-slate-200 min-h-screen flex">
+
+<!-- SIDEBAR -->
+<aside class="w-64 bg-panel border-r border-slate-800 p-6 hidden md:flex flex-col">
+  <h1 class="text-xl font-semibold mb-10 tracking-wide">
+    🎯 Career Tracker
+  </h1>
+
+  <nav class="space-y-2 text-sm">
+    <button onclick="show('apps')" class="flex items-center gap-3 px-3 py-2 rounded-lg text-accent bg-slate-800/40">
+      <i data-lucide="briefcase"></i> Applications
+    </button>
+    <button onclick="show('follow')" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted hover:bg-slate-800/30">
+      <i data-lucide="bell"></i> Follow-ups
+    </button>
+    <button onclick="show('analytics')" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted hover:bg-slate-800/30">
+      <i data-lucide="bar-chart-3"></i> Analytics
+    </button>
+  </nav>
+
+  <div class="mt-auto text-xs text-muted pt-6 border-t border-slate-800">
+    Built for personal use
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="flex-1 p-6 md:p-10 space-y-10">
+
+<!-- HEADER -->
+<header>
+  <h2 class="text-3xl font-semibold tracking-tight">
+    Career Command Center
+  </h2>
+  <p class="text-muted mt-1">
+    A personal system to manage applications, follow-ups, and outcomes.
+  </p>
+</header>
+
+<!-- APPLICATIONS -->
+<section id="apps" class="space-y-4">
+  <h3 class="text-xl font-semibold">Applications</h3>
+
+  <div class="bg-card rounded-xl border border-slate-800 overflow-hidden shadow-soft card-hover">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-900 text-muted">
+        <tr>
+          <th class="px-6 py-4 text-left">Company</th>
+          <th class="px-6 py-4 text-left">Role</th>
+          <th class="px-6 py-4 text-left">Status</th>
+          <th class="px-6 py-4 text-left">Follow-up</th>
+        </tr>
+      </thead>
+      <tbody id="appTable"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- FOLLOW UPS -->
+<section id="follow" class="hidden space-y-4">
+  <h3 class="text-xl font-semibold">Follow-ups Requiring Action</h3>
+  <div id="followList" class="grid gap-4 md:grid-cols-2"></div>
+</section>
+
+<!-- ANALYTICS -->
+<section id="analytics" class="hidden space-y-6">
+  <h3 class="text-xl font-semibold">Conversion Funnel</h3>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-card p-5 rounded-xl border border-slate-800 card-hover">
+      <p class="text-muted text-sm">Applied</p>
+      <h4 class="text-2xl font-semibold mt-1" id="aTotal"></h4>
+    </div>
+    <div class="bg-card p-5 rounded-xl border border-slate-800 card-hover">
+      <p class="text-muted text-sm">Interviews</p>
+      <h4 class="text-2xl font-semibold mt-1" id="aInterview"></h4>
+    </div>
+    <div class="bg-card p-5 rounded-xl border border-slate-800 card-hover">
+      <p class="text-muted text-sm">Offers</p>
+      <h4 class="text-2xl font-semibold mt-1" id="aOffer"></h4>
+    </div>
+    <div class="bg-card p-5 rounded-xl border border-slate-800 card-hover">
+      <p class="text-muted text-sm">Rejected</p>
+      <h4 class="text-2xl font-semibold mt-1" id="aReject"></h4>
+    </div>
+  </div>
+
+  <p class="text-muted text-sm">
+    Interview Conversion Rate: <span class="text-white font-medium" id="convRate"></span>%
+  </p>
+</section>
+
+</main>
+
+<script>
+lucide.createIcons();
+
+const supabase = supabaseJs.createClient(
+  "https://aeddptixtvbjoiljhzrr.supabase.co",
+  "sb_publishable_m7qLVlVTFHD9LSMcKCFhkg_CEid2vqP"
+);
+
+function show(id){
+  ["apps","follow","analytics"].forEach(s=>document.getElementById(s).classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+}
+
+async function load(){
+  const {data}=await supabase.from("applications").select("*");
+  const today=new Date().toISOString().split("T")[0];
+
+  appTable.innerHTML="";
+  followList.innerHTML="";
+
+  data.forEach(a=>{
+    let badge="";
+    if(a.follow_up){
+      if(a.follow_up<today) badge="🔥 Overdue";
+      else if(a.follow_up===today) badge="⚠️ Today";
+    }
+    appTable.innerHTML+=`
+      <tr class="border-t border-slate-800">
+        <td class="px-6 py-4">${a.company}</td>
+        <td class="px-6 py-4">${a.role}</td>
+        <td class="px-6 py-4">${a.status}</td>
+        <td class="px-6 py-4">${a.follow_up||"-"} ${badge}</td>
+      </tr>`;
+  });
+
+  data.filter(a=>a.follow_up && a.follow_up<=today)
+    .forEach(a=>{
+      followList.innerHTML+=`
+        <div class="bg-card p-4 rounded-xl border border-red-500/40 card-hover">
+          <p class="font-medium">${a.company}</p>
+          <p class="text-sm text-muted">${a.role}</p>
+          <p class="text-sm mt-1">Follow-up: ${a.follow_up}</p>
+        </div>`;
+    });
+
+  const total=data.length,
+        interview=data.filter(a=>a.status==="Interview").length,
+        offer=data.filter(a=>a.status==="Offer").length,
+        reject=data.filter(a=>a.status==="Rejected").length;
+
+  aTotal.innerText=total;
+  aInterview.innerText=interview;
+  aOffer.innerText=offer;
+  aReject.innerText=reject;
+  convRate.innerText=total?((interview/total)*100).toFixed(1):0;
+}
+
+load();
+</script>
+
+</body>
+</html>
+
+
